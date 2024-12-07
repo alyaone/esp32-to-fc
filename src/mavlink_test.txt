@@ -1,0 +1,97 @@
+#include <Arduino.h>
+#include "mavlink_function.h"
+
+void mav_arm_pack(boolean state);
+
+void MavLink_receive();
+// void armCopter();
+// void sendMsg();
+
+void setup() {
+  Serial.begin(57600);
+  mavlink_setup();
+}
+
+void loop() {
+  // Send HEARTBEAT message to Serial once a second
+  // mavlink_message_t msg;
+  // uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+  // mavlink_msg_heartbeat_pack(1, MAV_COMP_ID_AUTOPILOT1, &msg, MAV_TYPE_QUADROTOR, MAV_AUTOPILOT_GENERIC, MAV_MODE_FLAG_MANUAL_INPUT_ENABLED, 0, MAV_STATE_STANDBY);
+  // uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+
+  // Serial.write(buf, len);
+  // delay(1000);
+  mav_send_heartbeat();
+  
+  MavLink_receive(); //heartbeat
+  delay(500);
+  mav_arm();
+  Serial.println("ARming");
+  delay(500);
+  float r = random(1100, 1900);
+  float p = random(1100, 1900);
+  float y = random(1100, 1900);
+  float t = random(1100, 1900);
+  mav_manual_control(r, p, y , t);
+}
+
+void mav_arm_pack(boolean state) {
+  mavlink_message_t msg;
+  uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+
+  //Arm the drone
+  //400 stands for MAV_CMD_COMPONENT_ARM_DISARM
+  // 1 an 8'th argument is for ARM (0 for DISARM)
+  if(state) {
+    //ARM
+    mavlink_msg_command_long_pack(0xFF, 0xBE, &msg, 1, 1, 400, 1,1.0,0,0,0,0,0,0);
+  }else {
+    //DISARM
+    mavlink_msg_command_long_pack(0xFF, 0xBE, &msg, 1, 1, 400, 1,0.0,0,0,0,0,0,0);
+  }
+  uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+  Serial2.write(buf, len);
+}
+
+
+//function called by Arduino to read any MAVlink messages sent by serial communication from flight controller to arduino
+void MavLink_receive()
+  { 
+  mavlink_message_t msg;
+  mavlink_status_t status;
+
+  while(Serial2.available())
+  {
+    uint8_t c= Serial2.read();
+
+    //Get new message
+    if(mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status))
+    {
+
+    //Handle new message from autopilot
+      switch(msg.msgid)
+      {
+
+        //handle heartbeat message
+      case MAVLINK_MSG_ID_HEARTBEAT:
+       {
+       mavlink_heartbeat_t hb;
+       mavlink_msg_heartbeat_decode(&msg, &hb);
+       
+        Serial.print(millis());
+        Serial.print("\nFlight Mode: (10 is auto)");Serial.println(hb.custom_mode);
+        Serial.print("Type: ");                     Serial.println(hb.type);
+        Serial.print("Autopilot: ");                Serial.println(hb.autopilot);
+        Serial.print("Base Mode: ");                Serial.println(hb.base_mode);
+        Serial.print("System Status: ");            Serial.println(hb.system_status);
+        Serial.print("Mavlink Version: ");          Serial.println(hb.mavlink_version);
+        Serial.println();
+      
+      }
+      break;
+
+      }
+    }
+  }
+}

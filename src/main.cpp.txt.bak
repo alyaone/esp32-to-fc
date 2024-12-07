@@ -1,0 +1,79 @@
+// test 10 Feb 2024, inav
+// main code of receiver
+// don't use debug (ESP_LOGx) in deployment !!!
+#include <Arduino.h>
+// #include <esp_log.h>
+
+#include "defines.h"
+#include "radio.h"
+#include "espnow.h"
+#include "msp_function.h"
+#define USE_MSP true
+
+const byte startMarker = 255;
+
+void setup() {
+  Serial.begin(9600);
+
+  #ifdef USE_WIFI
+  esp_now_setup();
+  #else
+  radio_setup();
+  #endif
+
+  msp_begin();
+}
+
+// msp
+void loop() {
+  process_control_data(&control_data);
+
+  uint16_t randInt = random(1450, 1550);
+  uint16_t smallRand = random(10, 20);
+  
+  uint16_t rollValue = control_data.pwm_roll;
+  uint16_t pitchValue = control_data.pwm_pitch;
+  uint16_t throttleValue = control_data.pwm_thr;// + smallRand;
+  uint16_t yawValue = control_data.pwm_yaw;
+  uint16_t arm = (data.arm == 1) ? 1900 : 1100;
+  uint16_t mode1 = control_data.aux1;
+  uint16_t mode2 = control_data.aux2;
+
+
+  uint8_t _rcData[10];
+  _rcData[0] = control_data.pwm_roll & 0xFF;         // Roll (channel 1)
+  _rcData[1] = (rollValue >> 8) & 0xFF;
+  _rcData[2] = pitchValue & 0xFF;        // Pitch (channel 2)
+  _rcData[3] = (pitchValue >> 8) & 0xFF;
+  _rcData[4] = throttleValue & 0xFF;     // Throttle (channel 3)
+  _rcData[5] = (throttleValue >> 8) & 0xFF;
+  _rcData[6] = yawValue & 0xFF;          // Yaw (channel 4)
+  _rcData[7] = (yawValue >> 8) & 0xFF;
+  _rcData[8] = arm & 0xFF;
+  _rcData[9] = (arm >> 8) & 0xFF;
+  _rcData[10] = randInt & 0xFF;
+  _rcData[11] = (randInt >> 8) & 0xFF;
+  _rcData[12] = mode1 & 0xFF;
+  _rcData[13] = (mode1 >> 8) & 0xFF;
+
+  uint16_t rcData[14] = {rollValue, pitchValue, throttleValue, yawValue, arm, mode1, mode2, randInt, randInt, randInt, randInt, randInt, randInt, randInt};
+
+  msp.command(MSP_SET_RAW_RC, &rcData, sizeof(rcData), true);
+  MSP_SERIAL.flush();
+  Serial.println(control_data.pwm_thr);
+  
+}
+
+// void loop() {
+//   #ifdef USE_WIFI
+//   #else
+//   radio_loop();
+//   #endif
+
+//   // process_control_data(&control_data);
+//   // process_sbus(data);
+//   // process_sbus_to_teensy(data); //unused
+//   process_msp(&control_data);
+//   // mavlink_update(data);
+//   // joystick_loop(data);
+// }

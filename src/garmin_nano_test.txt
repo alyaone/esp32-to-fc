@@ -1,0 +1,47 @@
+// main code of receiver
+// don't use debug (ESP_LOGx) in deployment !!!
+#include <Arduino.h>
+#include <MSP.h>
+#include <SoftwareSerial.h>
+#include "LIDARLite.h"
+#include "msp_protocol_v2_sensor_msg.h"
+// #include "defines.h"
+// #include "msp_function.h"
+
+#define MSP2_SENSOR_RANGEFINDER     0x1F01
+
+SoftwareSerial mspSerial(2, 3);
+MSP msp;
+LIDARLite rangefinder;
+
+const byte startMarker = 255;
+
+void setup() {
+  Serial.begin(9600);
+  mspSerial.begin(115200);
+  msp.begin(mspSerial);
+    rangefinder.begin(0);
+}
+
+// msp
+void loop() {
+  int distance = rangefinder.distance();
+
+  mspSensorRangefinderDataMessage_t rngfndr = { (uint8_t)0, (int32_t)(distance * 10) };
+  msp.send(MSP2_SENSOR_RANGEFINDER, &rngfndr, sizeof(rngfndr));
+  Serial.println(rngfndr.distanceMm);
+}
+
+// void loop() {
+//   #ifdef USE_WIFI
+//   #else
+//   radio_loop();
+//   #endif
+
+//   // process_control_data(&control_data);
+//   // process_sbus(data);
+//   // process_sbus_to_teensy(data); //unused
+//   process_msp(&control_data);
+//   // mavlink_update(data);
+//   // joystick_loop(data);
+// }

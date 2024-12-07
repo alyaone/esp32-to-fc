@@ -1,0 +1,23 @@
+#include <Arduino.h>
+#include <ESP32Servo.h>
+
+Servo gripper;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(34, INPUT);
+  gripper.attach(35);
+  gripper.write(0);
+}
+
+int analog = 0;
+int pos = 0;
+//int p;
+void loop() {
+  analog = analogRead(34);
+  Serial.print(analog);
+  Serial.print(" || ");
+  pos = map(analog, 0, 4095, 0, 180);
+  Serial.println(pos);
+  gripper.write(random(0, 180));
+}

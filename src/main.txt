@@ -1,0 +1,125 @@
+
+#include "defines.h"
+
+#include <Arduino.h>
+
+#ifdef USE_ESP_DEBUG
+  #include <esp_log.h>
+#endif
+
+#include "radio.h"
+#include "espnow.h"
+
+#ifdef USE_MSP
+  #include "msp_function.h"
+#endif
+#ifdef USE_MAVLINK
+  #include "mavlink_function.h"
+#endif
+#ifdef USE_SBUS
+  #include "sbus_function.h"
+#endif
+#ifdef USE_JOYSTICK
+  #include "joystick_function.h"
+#endif
+#ifdef USE_GARMIN_LIDAR
+  #include "LIDARLite.h"
+  LIDARLite rangefinder;
+#endif
+
+// #include "driver/mcpwm_prelude.h"
+#include <ESP32Servo.h>
+
+const byte startMarker = 255;
+constexpr int gripper_srv_pin = 4;
+Servo gripper;
+int dutyCycle = 0;
+const int PWMFreq = 50;
+const int PWMChannel = 0;
+const int PWMResolution = 8;
+
+float KG; 
+float eEst;
+float eEst_prev = 1;
+float Q = 0.01;
+float eMea = 1;
+float x;
+float x_prev = 0;
+
+float kalman_filter(float mea){
+    eEst = eEst + Q; 
+    KG = eEst / (eEst + eMea);
+    x = x_prev + (KG * (mea - x_prev));
+    eEst = (1 - KG) * eEst;
+
+    x_prev = x;
+    eEst_prev = eEst;
+    return x;
+}
+
+void grip(){}
+
+void setup() {
+  Serial.begin(9600);
+
+#ifdef USE_GARMIN_LIDAR
+  rangefinder.begin(0);
+#endif
+
+#ifdef USE_WIFI
+  esp_now_setup();
+#else
+  radio_setup();
+#endif
+
+#ifdef USE_MSP
+  msp_begin();
+#endif
+#ifdef USE_MAVLINK
+  mavlink_setup();
+#endif
+#ifdef USE_SBUS
+  sbus_begin();
+#endif
+#ifdef USE_JOYSTICK
+  joystick_setup();
+#endif
+  pinMode(35, OUTPUT);
+  gripper.attach(gripper_srv_pin);
+  gripper.write(0);
+}
+
+void loop(){
+#ifdef USE_GARMIN_LIDAR
+  int distance = rangefinder.distance() * 10;
+  rngfndr_distance = kalman_filter(distance);
+#endif
+#ifdef USE_WIFI
+
+#else
+  radio_loop();
+#endif
+
+  process_control_data(&control_data);
+
+#ifdef USE_MSP
+  process_msp(&control_data);
+#endif
+#ifdef USE_MAVLINK
+  mavlink_loop();
+#endif
+#ifdef USE_SBUS
+  process_sbus(&control_data);
+#endif
+#ifdef USE_JOYSTICK
+  joystick_loop(&control_data);
+#endif
+  int srv_angle = map(control_data.aux2, 985, 2000, 0, 180);
+  gripper.write(srv_angle);
+  Serial.println(srv_angle);
+// if (data.grip) {
+//   gripper.write(SERVO_GRIP_ANGLE);
+// } else {
+//   gripper.write(-SERVO_GRIP_ANGLE);
+// }
+}

@@ -1,0 +1,27 @@
+#include <Arduino.h>
+#include <SPI.h>
+#include <RF24.h>
+
+RF24 radio(4, 5);
+
+byte addresses[][6] = {"1Node", "2Node"};
+
+void setup() {
+  radio.begin();
+  radio.setAutoAck(false);
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_MAX);  
+  radio.openReadingPipe(1, addresses[0]);
+  radio.openWritingPipe(addresses[1]);
+  Serial.begin(9600);
+
+  radio.printDetails();
+  
+}
+
+void loop() {
+//  empty
+ radio.printDetails();
+
+delay(1000);
+}
